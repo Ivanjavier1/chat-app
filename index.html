@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chatme</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
+    #chat { display: none; padding: 20px; }
+    #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background: #fff; }
+    #login { padding: 20px; }
+    input { padding: 8px; margin: 5px; }
+    button { padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Enter username" />
+    <button onclick="login()">Login</button>
+  </div>
+  <div id="chat">
+    <h2>Welcome, <span id="userLabel"></span></h2>
+    <div id="messages"></div>
+    <input type="text" id="messageInput" placeholder="Type a message"/>
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentUser = "";
+
+    function login() {
+      const username = document.getElementById("username").value;
+      fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      }).then(res => res.json()).then(data => {
+        if (data.success) {
+          currentUser = data.username;
+          document.getElementById("login").style.display = "none";
+          document.getElementById("chat").style.display = "block";
+          document.getElementById("userLabel").textContent = currentUser;
+          socket.emit("join", currentUser);
+        }
+      });
+    }
+
+    function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const msg = input.value;
+      if (msg.trim() !== "") {
+        socket.emit("message", msg);
+        input.value = "";
+      }
+    }
+
+    socket.on("message", (data) => {
+      const msgBox = document.getElementById("messages");
+      msgBox.innerHTML += `<p><strong>${data.from}:</strong> ${data.text}</p>`;
+      msgBox.scrollTop = msgBox.scrollHeight;
+    });
+
+    socket.on("chatHistory", (msgs) => {
+      const msgBox = document.getElementById("messages");
+      msgBox.innerHTML = msgs.map(m => `<p><strong>${m.from}:</strong> ${m.text}</p>`).join("");
+    });
+  </script>
+</body>
+</html>
